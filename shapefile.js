@@ -3,46 +3,43 @@
     if(window.document && window.Worker){
         var worker = null;
 
-        var Shapefile = function(o, callback){
-            var
-                t = this,
-                o = typeof o == "string" ? {shp: o} : o
-
-            if (!worker) {
-                var path = (o.jsRoot || "") + "shapefile.js"
-                var w = worker = this.worker = new Worker(path)
-            } else {
-                var w = worker
-            }
-
-            w.onmessage = function(e){
-                t.data = e.date
-                if(callback) callback(e.data)
-            }
-
-            w.postMessage(["Load", o])
-
-            if(o.dbf) this.dbf = new DBF(o.dbf,function(data){
-                w.postMessage(["Add DBF Attributes", data])
-            })
+        if (!worker) {
+            var path = "libs/shapefile/shapefile.js";
+            worker = new Worker(path);
         }
 
-        window["Shapefile"] = Shapefile
+        var Shapefile = function(o, callback){
+            var t = this;
+            o = typeof o == "string" ? {shp: o} : o;
+
+            worker.onmessage = function(e){
+                t.data = e.date;
+                if(callback) callback(e.data)
+            };
+
+            worker.postMessage(["Load", o]);
+
+            if(o.dbf) this.dbf = new DBF(o.dbf,function(data){
+                worker.postMessage(["Add DBF Attributes", data])
+            })
+        };
+
+        window["Shapefile"] = Shapefile;
         return
     }
 
-    var IN_WORKER = !window.document
+    var IN_WORKER = !window.document;
     if (IN_WORKER) {
-        importScripts('stream.js')
+        importScripts('stream.js');
         onmessage = function(e){
             switch (e.data[0]) {
                 case "Load":
-                    window.shapefile = new Shapefile(e.data[1])
-                    break
+                    window.shapefile = new Shapefile(e.data[1]);
+                    break;
                 case "Add DBF Attributes":
-                    window.shapefile.addDBFDataToGeoJSON(e.data[1])
-                    window.shapefile._postMessage()
-                    break
+                    window.shapefile.addDBFDataToGeoJSON(e.data[1]);
+                    window.shapefile._postMessage();
+                    break;
                 default:
             }
         };
@@ -65,47 +62,42 @@
         "31": "MultiPatch"
     }
 
-    var Shapefile = function(o,callback){
-        var o = typeof o == "string" ? {shp: o} : o
-        this.callback = callback
+    Shapefile = function(o,callback){
 
-        if (!!o.shp.lastModifiedDate)
-            this.handleFile(o);
-        else
-            this.handleUri(o);
-    }
+        this.handleFile(o);
+    };
 
     Shapefile.prototype = {
         constructor: Shapefile,
         handleUri: function(o) {
             var xhr = new XMLHttpRequest(),
-                that = this
-            
-            xhr.open("GET", o.shp, false)
-            xhr.overrideMimeType("text/plain; charset=x-user-defined")
-            xhr.send()
+                that = this;
+
+            xhr.open("GET", o.shp, false);
+            xhr.overrideMimeType("text/plain; charset=x-user-defined");
+            xhr.send();
 
             if(200 != xhr.status)
-                throw "Unable to load " + o.shp + " status: " + xhr.status
+                throw "Unable to load " + o.shp + " status: " + xhr.status;
 
-            this.url = o.shp
-            this.stream = new Gordon.Stream(xhr.responseText)
+            this.url = o.shp;
+            this.stream = new Gordon.Stream(xhr.responseText);
 
-            this.readFileHeader()
-            this.readRecords()
-            this.formatIntoGeoJson()
+            this.readFileHeader();
+            this.readRecords();
+            this.formatIntoGeoJson();
 
             if(o.dbf) this.dbf = IN_WORKER ?
                 null :
                 new DBF(o.dbf,function(data){
-                    that.addDBFDataToGeoJSON(data)
+                    that.addDBFDataToGeoJSON(data);
                     that._postMessage()
-                })
+                });
             else this._postMessage()
 
         },
         handleFile: function(o) {
-            this.options = o
+            this.options = o;
             if (!!window.FileReader) {
                 var reader = new FileReader();
             } else {
@@ -121,7 +113,7 @@
             if (!!window.FileReader) {
                 reader.readAsBinaryString(o.shp);
             } else {
-                this.onFileLoad(reader.readAsBinaryString(o.shp));   
+                this.onFileLoad(reader.readAsBinaryString(o.shp));
             }
         },
         onFileLoad: function(data) {
@@ -129,7 +121,7 @@
 
             this.readFileHeader()
             this.readRecords()
-            this.formatIntoGeoJson()            
+            this.formatIntoGeoJson()
 
             if(this.options.dbf) this.dbf = IN_WORKER ?
                 null :
@@ -207,7 +199,8 @@
                 record.shapeType = SHAPE_TYPES[s.readSI32()]
 
                 // Read specific shape
-                this["_read" + record.shapeType](record);
+                var func =  "_read" + record.shapeType;
+                this[func](record);
 
                 records.push(record);
 
@@ -215,71 +208,71 @@
 
         },
         _readBounds: function(object){
-            var s = this.stream
+            var s = this.stream;
 
             object.bounds = {
                 left: s.readDouble(),
                 bottom: s.readDouble(),
                 right: s.readDouble(),
                 top: s.readDouble()
-            }
+            };
 
             return object
         },
         _readParts: function(record){
             var s = this.stream,
                 nparts,
-                parts = []
+                parts = [];
 
-            nparts = record.numParts = s.readSI32()
+            nparts = record.numParts = s.readSI32();
 
             // since number of points always proceeds number of parts, capture it now
-            record.numPoints = s.readSI32()
+            record.numPoints = s.readSI32();
 
             // parts array indicates at which index the next part starts at
-            while(nparts--) parts.push(s.readSI32())
+            while(nparts--) parts.push(s.readSI32());
 
-            record.parts = parts
+            record.parts = parts;
 
             return record
         },
         _readPoint: function(record){
-            var s = this.stream
+            var s = this.stream;
 
-            record.x = s.readDouble()
-            record.y = s.readDouble()
+            record.x = s.readDouble();
+            record.y = s.readDouble();
 
             return record
         },
         _readPoints: function(record){
             var s = this.stream,
                 points = [],
-                npoints = record.numPoints || (record.numPoints = s.readSI32())
+                npoints = record.numPoints || (record.numPoints = s.readSI32());
 
             while(npoints--)
                 points.push({
                     x: s.readDouble(),
                     y: s.readDouble()
-                })
+                });
 
-            record.points = points
+            record.points = points;
 
             return record
         },
         _readMultiPoint: function(record){
-            var s = this.stream
+            var s = this.stream;
 
-            this._readBounds(record)
-            this._readPoints(record)
+            this._readBounds(record);
+            this._readPoints(record);
 
             return record
         },
         _readPolygon: function(record){
-            var s = this.stream
+            var s = this.stream;
 
-            this._readBounds(record)
-            this._readParts(record)
-            this._readPoints(record)
+            this._readBounds(record);
+            this._readParts(record);
+            this._readPoints(record);
 
             return record
         },
@@ -291,84 +284,84 @@
                 records = this.records,
                 features = [],
                 feature, geometry, points, fbounds, gcoords, parts, point,
-                geojson = {}
+                geojson = {};
 
-            geojson.type = "FeatureCollection"
+            geojson.type = "FeatureCollection";
             geojson.bbox = [
                     bounds.left,
                     bounds.bottom,
                     bounds.right,
                     bounds.top
-                ]
-            geojson.features = features
+                ];
+            geojson.features = features;
 
             for (var r = 0, record; record = records[r]; r++){
-                feature = {}, fbounds = record.bounds, points = record.points, parts = record.parts
-                feature.type = "Feature"
+                feature = {}, fbounds = record.bounds, points = record.points, parts = record.parts;
+                feature.type = "Feature";
                 if (record.shapeType !== 'Point') {
                     feature.bbox = [
                         fbounds.left,
                         fbounds.bottom,
                         fbounds.right,
                         fbounds.top
-                    ]                    
+                    ]
                 }
-                geometry = feature.geometry = {}
+                geometry = feature.geometry = {};
 
                 switch (record.shapeType) {
                     case "Point":
-                        geometry.type = "Point"
+                        geometry.type = "Point";
                         geometry.coordinates = [
                             record.x,
-                            record.y ]
-                        break
+                            record.y ];
+                        break;
                     case "MultiPoint":
                     case "PolyLine":
-                        geometry.type = (record.shapeType == "PolyLine" ? "LineString" : "MultiPoint")
-                        gcoords = geometry.coordinates = []
+                        geometry.type = (record.shapeType == "PolyLine" ? "LineString" : "MultiPoint");
+                        gcoords = geometry.coordinates = [];
 
                         for (var p = 0; p < points.length; p++){
-                            var point = points[p]
+                            var point = points[p];
                             gcoords.push([point.x,point.y])
                         }
-                        break
+                        break;
                     case "Polygon":
-                        geometry.type = "Polygon"
-                        gcoords = geometry.coordinates = []
+                        geometry.type = "Polygon";
+                        gcoords = geometry.coordinates = [];
 
                         for (var pt = 0; pt < parts.length; pt++){
                             var partIndex = parts[pt],
                                 part = [],
-                                point
+                                point;
 
                             // partIndex 0 == main poly, partIndex > 0 == holes in poly
                             for (var p = partIndex; p < (parts[pt+1] || points.length); p++){
-                                point = points[p]
+                                point = points[p];
                                 part.push([point.x,point.y])
                             }
                             gcoords.push(part)
                         }
-                        break
+                        break;
                     default:
                 }
                 features.push(feature)
             }
-            this.geojson = geojson
+            this.geojson = geojson;
 
             if(this._addDataAfterLoad) this.addDBFDataToGeoJSON(this._addDataAfterLoad);
         },
         addDBFDataToGeoJSON: function(dbfData){
-            if(!this.geojson) return (this._addDataAfterLoad = dbfData)
+            if(!this.geojson) return (this._addDataAfterLoad = dbfData);
 
-            this.dbf = dbfData
+            this.dbf = dbfData;
 
             var features = this.geojson.features,
                 len = features.length,
-                records = dbfData.records
+                records = dbfData.records;
 
             while(len--) features[len].properties = records[len]
         }
-    }
+    };
 
     window["Shapefile"] = Shapefile;
 })(self);
