@@ -1,7 +1,7 @@
 (function(window,undefined){
 
     if(window.document && window.Worker){
-        var worker = new Worker("dbf.js")
+        var worker = new Worker(document.currentScript.src)
 
         var DBF = function(url, callback){
             var

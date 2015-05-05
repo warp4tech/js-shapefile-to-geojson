@@ -4,7 +4,7 @@
         var worker = null;
 
         if (!worker) {
-            var path = "libs/shapefile/shapefile.js";
+            var path = document.currentScript.src;
             worker = new Worker(path);
         }
 
