@@ -1,7 +1,7 @@
 (function(window,undefined){
 
     if(window.document && window.Worker){
-        var worker = new Worker("bower_components/js-shapefile-to-geojson/dbf.js");
+        var worker = new Worker(document.currentScript.src)
 
         var DBF = function(url, callback){
             var w = this._worker = worker;

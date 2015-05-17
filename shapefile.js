@@ -4,7 +4,7 @@
         var worker = null;
 
         if (!worker) {
-            var path = "bower_components/js-shapefile-to-geojson/shapefile.js";
+            var path = document.currentScript.src;
             worker = new Worker(path);
         }
 
@@ -90,11 +90,11 @@
         },
         _postMessage: function() {
             var data = {
-                    header: this.header,
-                    records: this.records,
-                    dbf: this.dbf,
-                    geojson: this.geojson
-                };
+                header: this.header,
+                records: this.records,
+                dbf: this.dbf,
+                geojson: this.geojson
+            };
             if (IN_WORKER) postMessage(data);
             else if (this.callback) this.callback(data)
         },
